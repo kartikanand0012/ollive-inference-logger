@@ -1,0 +1,5 @@
+# Thin root entrypoint so `docker compose up --build` works from a clean clone.
+# The real stack definition lives in infra/docker-compose.yml (repo layout keeps
+# all infrastructure under infra/).
+include:
+  - infra/docker-compose.yml
