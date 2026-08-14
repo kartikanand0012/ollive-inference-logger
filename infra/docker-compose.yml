@@ -1,0 +1,175 @@
+# Consumed via the root docker-compose.yml `include:` — run compose from the
+# repo root so there is exactly one project (name derives from the root dir).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ollive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ollive}
+      POSTGRES_DB: ${POSTGRES_DB:-ollive}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1 forces TCP: initdb's bootstrap server listens only on the
+      # Unix socket, so a socket check can pass before clients can connect.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-ollive} -d ${POSTGRES_DB:-ollive}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  kafka:
+    image: apache/kafka:3.8.1
+    ports:
+      # Host-side listener for apps/tools running outside compose.
+      - "29092:29092"
+    environment:
+      # Single-node KRaft: this broker is both broker and controller.
+      # Prod posture (documented, not built): 3 brokers, RF=3, min.insync.replicas=2.
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Single broker → internal topics can't have RF>1.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Never auto-create: wrong partition counts. kafka-init owns topology.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      # Fixed cluster id keeps restarts of the same container consistent.
+      # No data volume by design: Kafka is a transit buffer here and
+      # recreating the container reformats storage — Postgres is the durable
+      # store, and kafka-init recreates topics.
+      CLUSTER_ID: "4L6g3nShT-eMCtK--X86sw"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 24
+      start_period: 20s
+
+  # One-shot: creates topics with exact partition counts via the kafkajs admin
+  # client (auto-create is disabled on the broker for a reason).
+  kafka-init:
+    build: ./kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:9092
+    restart: "no"
+
+  # One-shot: applies numbered SQL migrations in order, tracked in
+  # schema_migrations so re-runs are no-ops.
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-ollive}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-ollive}
+      PGDATABASE: ${POSTGRES_DB:-ollive}
+    volumes:
+      - ./migrations:/migrations:ro
+      - ./migrate.sh:/migrate.sh:ro
+    entrypoint: ["sh", "/migrate.sh"]
+    restart: "no"
+
+  ingest:
+    build:
+      context: ..
+      dockerfile: infra/docker/app.Dockerfile
+      args: { APP: ingest }
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      INGEST_KEY: ${INGEST_KEY:-dev-ingest-key}
+      INGEST_PORT: 4318
+      INGEST_RATE_LIMIT: ${INGEST_RATE_LIMIT:-600}
+      DATABASE_URL: postgres://${POSTGRES_USER:-ollive}:${POSTGRES_PASSWORD:-ollive}@postgres:5432/${POSTGRES_DB:-ollive}
+    ports:
+      - "4318:4318"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/docker/app.Dockerfile
+      args: { APP: worker }
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      DATABASE_URL: postgres://${POSTGRES_USER:-ollive}:${POSTGRES_PASSWORD:-ollive}@postgres:5432/${POSTGRES_DB:-ollive}
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/app.Dockerfile
+      args: { APP: api }
+    environment:
+      API_PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER:-ollive}:${POSTGRES_PASSWORD:-ollive}@postgres:5432/${POSTGRES_DB:-ollive}
+      INGEST_URL: http://ingest:4318
+      INGEST_KEY: ${INGEST_KEY:-dev-ingest-key}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CHAT_MAX_TOKENS: ${CHAT_MAX_TOKENS:-1024}
+      REDACT_MESSAGES: ${REDACT_MESSAGES:-false}
+      GUARDRAILS_BLOCK: ${GUARDRAILS_BLOCK:-false}
+      CHAT_TIMEOUT_MS: ${CHAT_TIMEOUT_MS:-120000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      API_RATE_LIMIT: ${API_RATE_LIMIT:-120}
+      REDIS_URL: redis://valkey:6379
+      SDK_FLUSH_MS: ${SDK_FLUSH_MS:-2000}
+      SDK_MAX_BATCH: ${SDK_MAX_BATCH:-50}
+      SDK_MAX_BUFFER: ${SDK_MAX_BUFFER:-1000}
+      SDK_MAX_RETRIES: ${SDK_MAX_RETRIES:-3}
+    ports:
+      - "4000:4000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      ingest:
+        condition: service_started
+      valkey:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:

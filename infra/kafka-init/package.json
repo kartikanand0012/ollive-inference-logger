@@ -1,0 +1,8 @@
+{
+  "name": "ollive-kafka-init",
+  "private": true,
+  "description": "One-shot topic creation via kafkajs admin (broker auto-create is disabled)",
+  "dependencies": {
+    "kafkajs": "^2.2.4"
+  }
+}

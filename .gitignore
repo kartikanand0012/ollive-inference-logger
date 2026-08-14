@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.next/
+.env
+.env.local
+*.log
+*.tsbuildinfo
+.DS_Store
+coverage/
+.turbo/
+infra/k8s/generated/
+
+# internal working docs — not part of the code deliverable
+docs/
+
+# terraform local state / provider cache
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+ARCHITECTURE.md
