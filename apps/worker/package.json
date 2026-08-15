@@ -1,0 +1,24 @@
+{
+  "name": "@ollive/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "replay-dlq": "tsx src/replay-dlq.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ollive/shared": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.23.0",
+    "tsx": "^4.23.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.7.0"
+  }
+}
