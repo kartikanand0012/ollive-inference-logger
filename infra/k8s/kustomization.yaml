@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ollive
+resources:
+  - namespace.yaml
+  - secret.example.yaml
+  - postgres.yaml
+  - kafka.yaml
+  - jobs.yaml
+  - api.yaml
+  - ingest.yaml
+  - worker.yaml
+  - web.yaml
+configMapGenerator:
+  - name: app-config
+    literals:
+      - DATABASE_URL=postgres://ollive:ollive@postgres:5432/ollive
+      - KAFKA_BROKERS=kafka:9092
+      - INGEST_URL=http://ingest:4318
+  # staged by scripts/k8s-up.sh (kustomize load restriction: files must live
+  # in or below this directory)
+  - name: migrations
+    files:
+      - generated/migrate.sh
+      - generated/0001_init.sql
+      - generated/0002_derived_metadata.sql
+      - generated/0003_guardrails.sql
+      - generated/0004_tenants.sql
+generatorOptions:
+  disableNameSuffixHash: true

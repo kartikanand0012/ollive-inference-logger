@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingest
+spec:
+  replicas: 1 # stateless — scale freely behind the Service
+  selector:
+    matchLabels: { app: ingest }
+  template:
+    metadata:
+      labels: { app: ingest }
+    spec:
+      containers:
+        - name: ingest
+          image: ollive/ingest:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef: { name: provider-keys }
+          env:
+            - { name: INGEST_PORT, value: "4318" }
+          ports: [{ containerPort: 4318 }]
+          readinessProbe:
+            httpGet: { path: /readyz, port: 4318 } # deep: proves Kafka producer connectivity
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: 4318 }
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingest
+spec:
+  selector: { app: ingest }
+  ports: [{ port: 4318 }]
