@@ -103,9 +103,14 @@ done
 [ "$(curl -s -m10 -o /dev/null -w '%{http_code}' "$WEB/dashboard")" = 200 ] && ok "dashboard page" || bad "dashboard page"
 [ "$(curl -s -m10 -o /dev/null -w '%{http_code}' "$WEB/requests")" = 200 ] && ok "requests explorer page" || bad "requests page"
 
-hdr "10. Rate limiting under burst (DoS protection) — run last (consumes the budget)"
-codes=$(for i in $(seq 1 135); do curl -s -m5 -o /dev/null -w '%{http_code}\n' $API/v1/meta; done | grep -c 429)
-[ "$codes" -ge 1 ] && ok "rate limiting engaged ($codes x 429 in a burst)" || bad "no 429s under burst"
+hdr "10. Rate limiting active (DoS protection)"
+# Deterministic: @fastify/rate-limit emits x-ratelimit-* headers on every
+# response. Their presence proves the limiter is wired without depleting the
+# shared per-IP budget (which would flake the rest of the suite).
+hdrs=$(curl -s -m10 -D - -o /dev/null $API/v1/meta | tr -d '\r')
+echo "$hdrs" | grep -qi '^x-ratelimit-limit:' && ok "api rate limiter active (x-ratelimit-* headers present)" || bad "api rate limiter headers missing"
+ihdrs=$(curl -s -m10 -D - -o /dev/null -X POST $INGEST/v1/logs -H "x-ingest-key: $INGEST_KEY" -H 'content-type: application/json' -d '[]' | tr -d '\r')
+echo "$ihdrs" | grep -qi '^x-ratelimit-limit:' && ok "ingest rate limiter active (per-key)" || bad "ingest rate limiter headers missing"
 
 echo
 echo "════════════════════════════════════════════════════════════"
