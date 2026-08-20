@@ -16,7 +16,6 @@ configMapGenerator:
       - DATABASE_URL=postgres://ollive:ollive@postgres:5432/ollive
       - KAFKA_BROKERS=kafka:9092
       - INGEST_URL=http://ingest:4318
-      - REDIS_URL=redis://valkey:6379
       - API_RATE_LIMIT=6000
       - INGEST_RATE_LIMIT=6000
   # staged by scripts/k8s-up.sh (kustomize load restriction: files must live
@@ -28,5 +27,6 @@ configMapGenerator:
       - generated/0002_derived_metadata.sql
       - generated/0003_guardrails.sql
       - generated/0004_tenants.sql
+      - generated/0005_assistant.sql
 generatorOptions:
   disableNameSuffixHash: true

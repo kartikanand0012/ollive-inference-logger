@@ -18,15 +18,26 @@ export async function initCancelBus(redisUrl: string | undefined, log: LogFn): P
     log.info({}, 'cancel bus: single-instance mode (no REDIS_URL)');
     return;
   }
-  pub = new Redis(redisUrl, { maxRetriesPerRequest: 1 });
-  sub = new Redis(redisUrl);
-  pub.on('error', (err) => log.warn({ err: String(err) }, 'cancel bus publisher error'));
-  sub.on('error', (err) => log.warn({ err: String(err) }, 'cancel bus subscriber error'));
-  await sub.subscribe(CHANNEL);
-  sub.on('message', (_channel, conversationId) => {
-    abortLocal(conversationId); // idempotent — self-delivery double-abort is harmless
-  });
-  log.info({ channel: CHANNEL }, 'cancel bus: pub/sub enabled');
+  // The bus is OPTIONAL — if Redis is unreachable we degrade to single-instance
+  // and NEVER crash the app. lazyConnect + guarded subscribe make that safe.
+  try {
+    const opts = { maxRetriesPerRequest: 1, lazyConnect: true, enableOfflineQueue: false,
+      retryStrategy: (n: number) => (n > 3 ? null : 200) };
+    const p = new Redis(redisUrl, opts);
+    const sConn = new Redis(redisUrl, opts);
+    p.on('error', (err) => log.warn({ err: String(err) }, 'cancel bus publisher error'));
+    sConn.on('error', (err) => log.warn({ err: String(err) }, 'cancel bus subscriber error'));
+    await p.connect();
+    await sConn.connect();
+    await sConn.subscribe(CHANNEL);
+    sConn.on('message', (_channel, conversationId) => abortLocal(conversationId));
+    pub = p; sub = sConn;
+    log.info({ channel: CHANNEL }, 'cancel bus: pub/sub enabled');
+  } catch (err) {
+    log.warn({ err: String(err) }, 'cancel bus unavailable — single-instance mode');
+    await pub?.quit().catch(() => undefined); await sub?.quit().catch(() => undefined);
+    pub = null; sub = null;
+  }
 }
 
 export async function closeCancelBus(): Promise<void> {
