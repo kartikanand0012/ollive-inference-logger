@@ -157,12 +157,27 @@ export function fetchLogs(params: {
 
 export const fetchLogDetail = (id: string) => getJson<LogDetail>(`/v1/logs/${id}`);
 
+// crypto.randomUUID() only exists in secure contexts (HTTPS / localhost).
+// Over plain HTTP on an IP it is undefined, so build a v4 uuid from
+// getRandomValues (available everywhere), with a Math.random fallback.
+function uuidv4(): string {
+  const c = typeof crypto !== 'undefined' ? crypto : undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  const b = new Uint8Array(16);
+  if (c?.getRandomValues) c.getRandomValues(b);
+  else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+  b[6] = (b[6]! & 0x0f) | 0x40; // version 4
+  b[8] = (b[8]! & 0x3f) | 0x80; // variant
+  const h = [...b].map((x) => x.toString(16).padStart(2, '0'));
+  return `${h.slice(0, 4).join('')}-${h.slice(4, 6).join('')}-${h.slice(6, 8).join('')}-${h.slice(8, 10).join('')}-${h.slice(10, 16).join('')}`;
+}
+
 /** Stable per-browser-session id — groups a user's turns in telemetry. */
 export function getSessionId(): string | undefined {
   if (typeof window === 'undefined') return undefined;
   let sid = window.sessionStorage.getItem('ollive-session');
   if (!sid) {
-    sid = crypto.randomUUID();
+    sid = uuidv4();
     window.sessionStorage.setItem('ollive-session', sid);
   }
   return sid;
