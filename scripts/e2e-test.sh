@@ -86,8 +86,6 @@ echo "$r" | grep -q '"accepted":0,"rejected":1' && ok "invalid event rejected pe
 
 hdr "7. Security: auth + rate limiting (DoS protection)"
 [ "$(curl -s -m10 -o /dev/null -w '%{http_code}' -X POST $INGEST/v1/logs -H 'content-type: application/json' -d '[]')" = 401 ] && ok "ingest rejects missing key (401)" || bad "ingest auth"
-codes=$(for i in $(seq 1 135); do curl -s -m5 -o /dev/null -w '%{http_code}\n' $API/v1/meta; done | grep -c 429)
-[ "$codes" -ge 1 ] && ok "rate limiting engaged ($codes x 429 in a burst)" || bad "no 429s under burst"
 
 hdr "8. Multi-tenancy"
 if [ -n "${KUBE:-}" ]; then
@@ -104,6 +102,10 @@ done
 [ "$(curl -s -m10 -o /dev/null -w '%{http_code}' "$API/v1/logs?window=1440&limit=5")" = 200 ] && ok "/v1/logs explorer" || bad "/v1/logs explorer"
 [ "$(curl -s -m10 -o /dev/null -w '%{http_code}' "$WEB/dashboard")" = 200 ] && ok "dashboard page" || bad "dashboard page"
 [ "$(curl -s -m10 -o /dev/null -w '%{http_code}' "$WEB/requests")" = 200 ] && ok "requests explorer page" || bad "requests page"
+
+hdr "10. Rate limiting under burst (DoS protection) — run last (consumes the budget)"
+codes=$(for i in $(seq 1 135); do curl -s -m5 -o /dev/null -w '%{http_code}\n' $API/v1/meta; done | grep -c 429)
+[ "$codes" -ge 1 ] && ok "rate limiting engaged ($codes x 429 in a burst)" || bad "no 429s under burst"
 
 echo
 echo "════════════════════════════════════════════════════════════"
