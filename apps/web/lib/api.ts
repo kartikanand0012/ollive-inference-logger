@@ -33,7 +33,7 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export const fetchMeta = () =>
-  getJson<{ providers: string[]; models: Record<string, string[]> }>('/v1/meta');
+  getJson<{ providers: string[]; models: Record<string, string[]>; active: string | null }>('/v1/meta');
 export const fetchConversations = () => getJson<Conversation[]>('/v1/conversations');
 export const fetchMessages = (conversationId: string) =>
   getJson<Message[]>(`/v1/conversations/${conversationId}/messages`);
@@ -48,9 +48,14 @@ export interface StatsSummary {
   requests: number;
   errors: number;
   cancelled: number;
+  success: number;
+  streamed: number;
+  conversations: number;
   p95_latency_ms: number | null;
-  total_tokens: number | string;
+  avg_latency_ms: number | null;
   ttfb_p50: number | null;
+  total_tokens: number | string;
+  avg_tokens: number | null;
   est_cost_usd: number | null;
   flagged_injection: number;
 }
@@ -144,6 +149,7 @@ export interface LogDetail {
   };
   estCostUsd: number | null;
   conversation: { id: string; title: string | null } | null;
+  analytics: { sample: number; latencyPct: number | null; avgLatencyMs: number | null; avgTokens: number | null; avgCostUsd: number | null } | null;
 }
 
 export function fetchLogs(params: {
@@ -234,6 +240,11 @@ export interface SettingsInfo {
   providers: Record<string, ProviderStatus>;
   models: Record<string, string[]>;
   configured: string[];
+  active: string | null;
+}
+export async function activateProvider(provider: string): Promise<{ ok?: boolean; active?: string }> {
+  const res = await fetch(`${API_URL}/v1/settings/active`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ provider }) });
+  return res.json();
 }
 export const fetchSettings = () => getJson<SettingsInfo>('/v1/settings');
 export async function saveProviderKey(provider: string, apiKey: string): Promise<{ ok?: boolean; error?: string; message?: string; configured?: string[] }> {
@@ -242,4 +253,17 @@ export async function saveProviderKey(provider: string, apiKey: string): Promise
     body: JSON.stringify({ provider, apiKey }),
   });
   return res.json() as Promise<{ ok?: boolean; error?: string; message?: string; configured?: string[] }>;
+}
+
+
+// ── assistant (analytics copilot) ─────────────────────────────────────────────
+export interface AssistantMessage { id: string; role: 'user' | 'assistant'; content: string; createdAt: string; }
+export const fetchAssistantHistory = (threadId: string) => getJson<AssistantMessage[]>(`/v1/assistant/${threadId}`);
+export async function* streamAssistant(threadId: string, question: string): AsyncGenerator<{ type: string; text?: string; message?: string }> {
+  const res = await fetch(`${API_URL}/v1/assistant`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ threadId, question }) });
+  if (!res.ok || !res.body) { const e = await res.json().catch(() => ({})); throw new Error(e.message ?? e.error ?? `HTTP ${res.status}`); }
+  const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+  for (;;) { const { done, value } = await reader.read(); if (done) break; buf += dec.decode(value, { stream: true });
+    let i; while ((i = buf.indexOf('\n\n')) !== -1) { const frame = buf.slice(0, i); buf = buf.slice(i + 2);
+      for (const line of frame.split('\n')) if (line.startsWith('data: ')) yield JSON.parse(line.slice(6)); } }
 }

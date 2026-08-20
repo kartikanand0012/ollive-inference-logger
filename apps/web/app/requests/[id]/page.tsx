@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageSquare, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, BarChart3, MessageSquare, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { fetchLogDetail, type LogDetail } from '../../../lib/api';
 import { Card, StatusBadge } from '../../../components/ui';
 
@@ -74,6 +74,19 @@ export default function RequestDetail() {
         </div>
 
         <div className="space-y-4">
+          {data.analytics && data.analytics.sample > 1 && (
+            <Card title="How this request compares" right={<BarChart3 className="h-4 w-4 text-ink-faint" />}>
+              <div className="space-y-3 text-sm">
+                {log.latencyMs != null && data.analytics.latencyPct != null && (
+                  <Compare label="latency vs model" pct={data.analytics.latencyPct}
+                    detail={`${log.latencyMs}ms · faster than ${data.analytics.latencyPct}% of ${data.analytics.sample} recent calls`} />
+                )}
+                <Delta label="latency" value={log.latencyMs} avg={data.analytics.avgLatencyMs} unit="ms" lowerBetter />
+                <Delta label="tokens" value={log.totalTokens} avg={data.analytics.avgTokens} unit="" />
+              </div>
+              <div className="mt-2 text-[11px] text-ink-faint">baseline: this model, last 7 days ({data.analytics.sample} calls)</div>
+            </Card>
+          )}
           <Card title="Guardrails">
             {flagged
               ? <div className="flex items-center gap-2 text-sm text-warn"><ShieldAlert className="h-5 w-5" /> injection heuristics flagged this input</div>
@@ -105,6 +118,27 @@ export default function RequestDetail() {
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Compare({ label, pct, detail }: { label: string; pct: number; detail: string }) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs"><span className="text-ink-muted">{label}</span><span className="font-mono text-ink">{pct}th pct</span></div>
+      <div className="h-2 overflow-hidden rounded-full bg-carbon-800"><div className="h-full rounded-full bg-signal" style={{ width: `${pct}%` }} /></div>
+      <div className="mt-1 text-[11px] text-ink-faint">{detail}</div>
+    </div>
+  );
+}
+function Delta({ label, value, avg, unit, lowerBetter }: { label: string; value: number | null; avg: number | null; unit: string; lowerBetter?: boolean }) {
+  if (value == null || avg == null || avg === 0) return null;
+  const diff = Math.round(((value - avg) / avg) * 100);
+  const good = lowerBetter ? diff <= 0 : diff >= 0;
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-ink-muted">{label}</span>
+      <span className="font-mono"><span className="text-ink">{value}{unit}</span> <span className="text-ink-faint">vs {avg}{unit} avg</span> <span style={{ color: good ? '#43c493' : '#e0a43a' }}>{diff > 0 ? '+' : ''}{diff}%</span></span>
     </div>
   );
 }

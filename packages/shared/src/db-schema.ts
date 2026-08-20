@@ -77,6 +77,14 @@ export const tenants = pgTable('tenants', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const assistantMessages = pgTable('assistant_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  threadId: text('thread_id').notNull(),
+  role: text('role', { enum: ['user', 'assistant'] }).notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const ingestFailures = pgTable('ingest_failures', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
   kafkaTopic: text('kafka_topic'),

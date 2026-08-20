@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, KeyRound, Loader2, Settings as SettingsIcon, ShieldCheck } from 'lucide-react';
-import { fetchSettings, saveProviderKey, type SettingsInfo } from '../../lib/api';
+import { activateProvider, fetchSettings, saveProviderKey, type SettingsInfo } from '../../lib/api';
 import { Card } from '../../components/ui';
 
 const PROVIDERS = [
@@ -36,6 +36,20 @@ export default function SettingsPage() {
           </div>
         </Card>
 
+        {info && info.configured.length > 1 && (
+          <Card>
+            <h2 className="font-display text-sm font-medium text-ink">Active provider</h2>
+            <p className="mt-1 mb-3 text-xs text-ink-muted">Both providers are configured. Choose which one new chats use by default — activate one at a time.</p>
+            <div className="flex gap-2">
+              {info.configured.map((p) => (
+                <button key={p} onClick={async () => { await activateProvider(p); refresh(); }}
+                  className={`btn px-4 ${info.active === p ? 'bg-signal text-carbon-950' : 'border border-carbon-700 text-ink-muted hover:text-ink'}`}>
+                  {info.active === p && <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-carbon-950" />}{p}
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
         {PROVIDERS.map((p) => (
           <ProviderKeyCard key={p.id} p={p} status={info?.providers[p.id]} models={info?.models[p.id] ?? []} onSaved={refresh} />
         ))}

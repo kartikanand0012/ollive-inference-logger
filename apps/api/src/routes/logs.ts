@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { and, desc, eq, gte, ilike, lt } from 'drizzle-orm';
 import { z } from 'zod';
 import { estimateCostUsd, zUuid } from '@ollive/shared';
-import { conversations, db, inferenceLogs } from '../db.js';
+import { conversations, db, inferenceLogs, pool } from '../db.js';
 
 // Requests explorer: the drill-down surface behind every dashboard chart.
 // List is filterable (provider/model/status/window) with keyset pagination;
@@ -98,10 +98,42 @@ export function registerLogRoutes(app: FastifyInstance): void {
       conversation = conv[0] ?? null;
     }
 
+    // Per-request analytics: where does THIS request sit vs its model's
+    // recent population (last 7d) — latency percentile rank, and averages.
+    let analytics: {
+      sample: number; latencyPct: number | null;
+      avgLatencyMs: number | null; avgTokens: number | null; avgCostUsd: number | null;
+    } | null = null;
+    try {
+      const client = await pool.connect();
+      try {
+        const res = await client.query(
+          `SELECT count(*)::int AS sample,
+                  round(avg(latency_ms) FILTER (WHERE status='success'))::int AS avg_latency,
+                  round(avg(total_tokens))::int AS avg_tokens,
+                  round(100.0 * count(*) FILTER (WHERE latency_ms <= $2 AND status='success')
+                        / nullif(count(*) FILTER (WHERE status='success'),0))::int AS lat_pct
+           FROM inference_logs
+           WHERE model = $1 AND request_started_at >= now() - interval '7 days'`,
+          [log.model, log.latencyMs ?? 0],
+        );
+        const r = res.rows[0];
+        const cost = estimateCostUsd(log.model, null, r.avg_tokens);
+        analytics = {
+          sample: r.sample,
+          latencyPct: log.latencyMs != null ? r.lat_pct : null,
+          avgLatencyMs: r.avg_latency,
+          avgTokens: r.avg_tokens,
+          avgCostUsd: cost,
+        };
+      } finally { client.release(); }
+    } catch { /* analytics is best-effort */ }
+
     return {
       log,
       estCostUsd: estimateCostUsd(log.model, log.promptTokens, log.completionTokens),
       conversation,
+      analytics,
     };
   });
 }

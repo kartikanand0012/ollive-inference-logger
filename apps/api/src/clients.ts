@@ -24,8 +24,18 @@ function build(provider: string, key: string, source: Src): void {
 if (env.anthropicApiKey) build('anthropic', env.anthropicApiKey, 'env');
 if (env.openaiApiKey) build('openai', env.openaiApiKey, 'env');
 
+// When both providers are configured, one is "active" — the default the chat
+// picker selects. Users switch it in Settings (activate one at a time).
+let active: string | null = null;
+function ensureActive() { if (!active || !adapters.has(active)) active = [...adapters.keys()][0] ?? null; }
+
 export function getAdapter(provider: string): ProviderAdapter | undefined {
   return adapters.get(provider);
+}
+export function getActiveProvider(): string | null { ensureActive(); return active; }
+export function setActiveProvider(p: string): boolean {
+  if (!adapters.has(p)) return false;
+  active = p; return true;
 }
 export function configuredProviders(): string[] {
   return [...adapters.keys()];

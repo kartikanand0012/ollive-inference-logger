@@ -84,11 +84,16 @@ export function registerStatsRoutes(app: FastifyInstance): void {
       `SELECT count(*)::int AS requests,
               count(*) FILTER (WHERE l.status = 'error')::int AS errors,
               count(*) FILTER (WHERE l.status = 'cancelled')::int AS cancelled,
+              count(*) FILTER (WHERE l.status = 'success')::int AS success,
+              count(*) FILTER (WHERE l.is_stream)::int AS streamed,
+              count(DISTINCT l.conversation_id)::int AS conversations,
               round(percentile_cont(0.95) WITHIN GROUP (ORDER BY l.latency_ms)
                     FILTER (WHERE l.latency_ms IS NOT NULL))::int AS p95_latency_ms,
+              round(avg(l.latency_ms) FILTER (WHERE l.status='success'))::int AS avg_latency_ms,
               round(percentile_cont(0.50) WITHIN GROUP (ORDER BY l.ttfb_ms)
                     FILTER (WHERE l.is_stream))::int AS ttfb_p50,
               coalesce(sum(l.total_tokens), 0)::bigint AS total_tokens,
+              round(avg(l.total_tokens) FILTER (WHERE l.total_tokens IS NOT NULL))::int AS avg_tokens,
               count(*) FILTER (WHERE l.flagged_injection)::int AS flagged_injection,
               round(sum(${COST_EXPR})::numeric, 4)::float8 AS est_cost_usd
        FROM inference_logs l ${COST_JOIN}

@@ -60,7 +60,7 @@ export default function Chat() {
     refreshConversations();
     fetchMeta().then((meta) => {
       setModels(meta.models); setConfigured(meta.providers);
-      const first = meta.providers[0] ?? 'anthropic';
+      const first = meta.active ?? meta.providers[0] ?? 'anthropic';
       setProvider(first); setModel(meta.models[first]?.[0] ?? '');
     }).catch(() => setNotice('api unreachable'));
   }, [refreshConversations]);

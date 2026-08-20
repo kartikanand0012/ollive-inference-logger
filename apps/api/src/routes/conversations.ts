@@ -4,13 +4,14 @@ import { zUuid } from '@ollive/shared';
 import { PROVIDER_MODELS } from '@ollive/providers';
 import { conversations, db, messages } from '../db.js';
 import { cancelConversation } from '../cancels.js';
-import { configuredProviders } from '../clients.js';
+import { configuredProviders, getActiveProvider } from '../clients.js';
 
 export function registerConversationRoutes(app: FastifyInstance): void {
   // Providers/models available to the UI picker.
   app.get('/v1/meta', async () => ({
     providers: configuredProviders(),
     models: PROVIDER_MODELS,
+    active: getActiveProvider(),
   }));
 
   app.get('/v1/conversations', async () => {

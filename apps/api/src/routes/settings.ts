@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { PROVIDER_MODELS } from '@ollive/providers';
-import { configuredProviders, providerStatus, setProviderKey } from '../clients.js';
+import { configuredProviders, getActiveProvider, providerStatus, setActiveProvider, setProviderKey } from '../clients.js';
 
 const KeyBody = z.object({
   provider: z.enum(['anthropic', 'openai']),
@@ -13,7 +13,14 @@ export function registerSettingsRoutes(app: FastifyInstance): void {
     providers: providerStatus(),
     models: PROVIDER_MODELS,
     configured: configuredProviders(),
+    active: getActiveProvider(),
   }));
+
+  app.post('/v1/settings/active', async (request, reply) => {
+    const p = (request.body as { provider?: string })?.provider;
+    if (!p || !setActiveProvider(p)) return reply.code(400).send({ error: 'provider not configured' });
+    return { ok: true, active: getActiveProvider() };
+  });
 
   app.post('/v1/settings/keys', async (request, reply) => {
     const parsed = KeyBody.safeParse(request.body);
