@@ -32,5 +32,8 @@ kind: Service
 metadata:
   name: ingest
 spec:
+  type: NodePort
   selector: { app: ingest }
-  ports: [{ port: 4318 }]
+  ports:
+    - port: 4318
+      nodePort: 30043
