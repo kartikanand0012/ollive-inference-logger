@@ -1,0 +1,53 @@
+# Deploys to AWS via OIDC (no stored AWS keys). Requires, once per environment:
+#   - terraform applied at least once manually (state bucket + data layer first)
+#   - repo variable AWS_DEPLOY_ROLE_ARN = terraform output deploy_role_arn
+#   - repo variable AWS_REGION
+#   - a GitHub environment named "prod" (the OIDC trust is pinned to it)
+name: deploy
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write # OIDC
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      - name: build + push (immutable tag = git sha)
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ github.sha }}
+        run: |
+          for app in api ingest worker; do
+            docker build -f infra/docker/app.Dockerfile --build-arg APP=$app \
+              -t "$REGISTRY/ollive/$app:$TAG" .
+            docker push "$REGISTRY/ollive/$app:$TAG"
+          done
+          docker build -f infra/docker/web.Dockerfile -t "$REGISTRY/ollive/web:$TAG" .
+          docker push "$REGISTRY/ollive/web:$TAG"
+          docker build infra/kafka-init -t "$REGISTRY/ollive/kafka-init:$TAG"
+          docker push "$REGISTRY/ollive/kafka-init:$TAG"
+      - uses: opentofu/setup-opentofu@v1
+      - name: apply
+        working-directory: infra/terraform
+        run: |
+          tofu init
+          tofu apply -auto-approve \
+            -var "github_repo=${{ github.repository }}" \
+            -var "image_tag=${{ github.sha }}" \
+            -var "db_password=${{ secrets.DB_PASSWORD }}"
+      - name: roll services
+        run: |
+          for svc in api ingest worker web; do
+            aws ecs update-service --cluster ollive-prod --service "$svc" --force-new-deployment
+          done

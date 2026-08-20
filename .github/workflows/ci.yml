@@ -1,0 +1,42 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r typecheck
+      - run: pnpm test
+      - name: build images (compose parity check)
+        run: |
+          docker build -f infra/docker/app.Dockerfile --build-arg APP=api    -t ci/api .
+          docker build -f infra/docker/app.Dockerfile --build-arg APP=ingest -t ci/ingest .
+          docker build -f infra/docker/app.Dockerfile --build-arg APP=worker -t ci/worker .
+          docker build -f infra/docker/web.Dockerfile                        -t ci/web .
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - name: bring up the stack (no provider key → key-gated steps skip)
+        run: |
+          cp .env.example .env
+          docker compose up -d --build
+      - name: wait for readiness
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf localhost:4000/readyz && curl -sf localhost:4318/readyz && exit 0
+            sleep 5
+          done
+          docker compose ps; docker compose logs --tail 50; exit 1
+      - run: ./scripts/smoke.sh
