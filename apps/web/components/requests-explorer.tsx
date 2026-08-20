@@ -1,173 +1,108 @@
 'use client';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ListTree, Search, ShieldAlert } from 'lucide-react';
+import { fetchLogs, fetchStats, type Facets, type LogListRow } from '../lib/api';
+import { filtersToQuery, useUrlFilters } from '../lib/hooks';
+import { EmptyState, LiveDot, StatusBadge } from './ui';
+import { FilterBar } from './filter-bar';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { fetchLogs, fetchMeta, type LogListRow } from '../lib/api';
-
-const STATUS_COLORS: Record<string, string> = {
-  success: '#199e70',
-  error: '#ec835a',
-  cancelled: '#c98500',
-};
-
+const DEFAULTS = { window: '1440', provider: '', model: '', status: '', stream: '', tenant: '', q: '', flagged: '', conversationId: '' };
+const KEYS = Object.keys(DEFAULTS);
 const fmtUsd = (n: number | null) => (n == null ? '—' : `$${n.toFixed(4)}`);
 
 export default function RequestsExplorer() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const [windowMin, setWindowMin] = useState(Number(searchParams.get('window') ?? 1440));
-  const [provider, setProvider] = useState(searchParams.get('provider') ?? '');
-  const [model, setModel] = useState(searchParams.get('model') ?? '');
-  const [status, setStatus] = useState(searchParams.get('status') ?? '');
-  const [conversationId, setConversationId] = useState(searchParams.get('conversationId') ?? '');
-  const [models, setModels] = useState<Record<string, string[]>>({});
+  const { filters, set, reset, active } = useUrlFilters(DEFAULTS);
+  const [facets, setFacets] = useState<Facets | null>(null);
   const [rows, setRows] = useState<LogListRow[]>([]);
   const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  const seqRef = useRef(0);
 
-  useEffect(() => {
-    fetchMeta()
-      .then((m) => setModels(m.models))
-      .catch(() => undefined);
-  }, []);
+  useEffect(() => { fetchStats.facets().then(setFacets).catch(() => undefined); }, []);
 
-  const load = useCallback(
-    async (append: boolean, before?: string) => {
-      setLoading(true);
-      setNotice(null);
-      try {
-        const res = await fetchLogs({ window: windowMin, provider, model, status, conversationId, before });
-        setRows((prev) => (append ? [...prev, ...res.rows] : res.rows));
-        setNextBefore(res.nextBefore);
-      } catch {
-        setNotice('failed to load requests — is the api up?');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [windowMin, provider, model, status, conversationId],
-  );
+  const load = useCallback(async (append: boolean, before?: string) => {
+    const seq = ++seqRef.current;
+    setLoading(true); setNotice(null);
+    try {
+      const params: Record<string, string> = {};
+      for (const k of KEYS) if (filters[k]) params[k] = filters[k]!;
+      if (before) params.before = before;
+      const res = await fetchLogs(params);
+      if (seqRef.current !== seq) return;
+      setRows((prev) => (append ? [...prev, ...res.rows] : res.rows));
+      setNextBefore(res.nextBefore);
+    } catch { if (seqRef.current === seq) setNotice('failed to load — is the api up?'); }
+    finally { if (seqRef.current === seq) setLoading(false); }
+  }, [filters]);
 
-  // Reload on filter change and mirror filters into the URL (shareable links).
-  useEffect(() => {
-    const qs = new URLSearchParams();
-    qs.set('window', String(windowMin));
-    if (provider) qs.set('provider', provider);
-    if (model) qs.set('model', model);
-    if (status) qs.set('status', status);
-    if (conversationId) qs.set('conversationId', conversationId);
-    router.replace(`/requests?${qs.toString()}`, { scroll: false });
-    void load(false);
-  }, [windowMin, provider, model, status, conversationId, load, router]);
-
-  const select = 'rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm';
+  const qs = useMemo(() => filtersToQuery(filters, KEYS), [filters]);
+  useEffect(() => { void load(false); /* eslint-disable-next-line */ }, [qs]);
 
   return (
-    <div className="h-full overflow-y-auto p-4">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h1 className="mr-2 text-lg font-semibold">Requests</h1>
-        <select value={windowMin} onChange={(e) => setWindowMin(Number(e.target.value))} className={select}>
-          <option value={60}>last hour</option>
-          <option value={360}>last 6 hours</option>
-          <option value={1440}>last 24 hours</option>
-          <option value={10080}>last 7 days</option>
-        </select>
-        <select value={provider} onChange={(e) => { setProvider(e.target.value); setModel(''); }} className={select}>
-          <option value="">all providers</option>
-          {Object.keys(models).map((p) => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
-        <select value={model} onChange={(e) => setModel(e.target.value)} className={select}>
-          <option value="">all models</option>
-          {(provider ? models[provider] ?? [] : Object.values(models).flat()).map((m) => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className={select}>
-          <option value="">all statuses</option>
-          <option value="success">success</option>
-          <option value="error">error</option>
-          <option value="cancelled">cancelled</option>
-        </select>
-        {conversationId && (
-          <button
-            onClick={() => setConversationId('')}
-            className="rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-xs text-zinc-300 hover:border-zinc-500"
-            title="clear conversation filter"
-          >
-            conversation {conversationId.slice(0, 8)}… ✕
-          </button>
-        )}
-        {notice && <span className="text-xs text-red-400">{notice}</span>}
-      </div>
-
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="text-zinc-400">
-              <tr>
-                {['time', 'model', 'status', 'stream', 'latency ms', 'TTFT ms', 'tokens in/out', 'est. cost', 'input preview'].map((h) => (
-                  <th key={h} className="px-3 py-2 font-normal">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  onClick={() => router.push(`/requests/${r.id}`)}
-                  className="cursor-pointer border-t border-zinc-800 hover:bg-zinc-800/60"
-                >
-                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-zinc-400">
-                    {new Date(r.requestStartedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">{r.provider}/{r.model}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                      style={{ color: STATUS_COLORS[r.status], backgroundColor: `${STATUS_COLORS[r.status]}22` }}
-                    >
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-zinc-400">{r.isStream ? 'yes' : 'no'}</td>
-                  <td className="px-3 py-2 tabular-nums">{r.latencyMs ?? '—'}</td>
-                  <td className="px-3 py-2 tabular-nums">{r.ttfbMs ?? '—'}</td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {r.promptTokens ?? '—'} / {r.completionTokens ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">{fmtUsd(r.estCostUsd)}</td>
-                  <td className="max-w-sm truncate px-3 py-2 text-zinc-300">
-                    {r.flaggedInjection && (
-                      <span title="prompt-injection heuristics flagged this input" className="mr-1 text-[#c98500]">⚠</span>
-                    )}
-                    {r.inputPreview ?? '—'}
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && !loading && (
-                <tr>
-                  <td colSpan={9} className="px-3 py-10 text-center text-zinc-500">
-                    no requests match these filters
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+    <div className="h-full overflow-y-auto">
+      <header className="sticky top-0 z-20 border-b border-carbon-800 bg-carbon-950/70 px-5 py-3 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <ListTree className="h-5 w-5 text-signal" />
+          <h1 className="font-display text-base font-semibold tracking-tight text-ink">Requests</h1>
+          <span className="flex items-center gap-1.5 text-[11px] text-ink-faint"><LiveDot color="#4d9bff" /> {rows.length} shown{loading ? ' · loading' : ''}</span>
+          {filters.conversationId && <button onClick={() => set('conversationId', '')} className="chip cursor-pointer border-signal/30 text-signal">conversation {filters.conversationId.slice(0, 8)}… ✕</button>}
         </div>
-        <div className="flex items-center justify-between border-t border-zinc-800 px-3 py-2 text-xs text-zinc-500">
-          <span>{rows.length} row(s){loading ? ' · loading…' : ''}</span>
-          {nextBefore && (
-            <button
-              onClick={() => void load(true, nextBefore)}
-              className="rounded-md border border-zinc-700 px-3 py-1 hover:border-zinc-500"
-            >
-              Load older
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <FilterBar filters={filters} set={set} reset={reset} active={active} facets={facets} extra={
+            <button onClick={() => set('flagged', filters.flagged ? '' : 'true')}
+              className={`chip cursor-pointer ${filters.flagged ? 'border-warn/40 text-warn' : ''}`}>
+              <ShieldAlert className="h-3 w-3" /> flagged only
             </button>
-          )}
+          } />
+          <div className="relative ml-auto">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
+            <input value={filters.q ?? ''} onChange={(e) => set('q', e.target.value)} placeholder="Search input previews…" className="input w-64 pl-8" />
+          </div>
+        </div>
+        {notice && <div className="mt-2 text-xs text-danger">{notice}</div>}
+      </header>
+
+      <div className="p-5">
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-ink-faint">
+                <tr className="border-b border-carbon-800">
+                  {['time', 'model', 'status', 'stream', 'latency', 'TTFT', 'tokens', 'cost', 'input'].map((h) => <th key={h} className="px-3 py-2.5 font-medium">{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                <AnimatePresence initial={false}>
+                  {rows.map((r) => (
+                    <motion.tr key={r.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                      onClick={() => router.push(`/requests/${r.id}`)}
+                      className="cursor-pointer border-b border-carbon-800/60 transition-colors hover:bg-carbon-800/50">
+                      <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] text-ink-faint">{new Date(r.requestStartedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-ink-muted">{r.provider}/{r.model}</td>
+                      <td className="px-3 py-2.5"><StatusBadge status={r.status} /></td>
+                      <td className="px-3 py-2.5 font-mono text-ink-faint">{r.isStream ? 'yes' : 'no'}</td>
+                      <td className="px-3 py-2.5 font-mono tabular-nums text-ink-muted">{r.latencyMs ?? '—'}</td>
+                      <td className="px-3 py-2.5 font-mono tabular-nums text-ink-muted">{r.ttfbMs ?? '—'}</td>
+                      <td className="px-3 py-2.5 font-mono tabular-nums text-ink-muted">{r.promptTokens ?? '—'}/{r.completionTokens ?? '—'}</td>
+                      <td className="px-3 py-2.5 font-mono tabular-nums text-live">{fmtUsd(r.estCostUsd)}</td>
+                      <td className="max-w-sm truncate px-3 py-2.5 text-ink-muted">
+                        {r.flaggedInjection && <ShieldAlert className="mr-1 inline h-3.5 w-3.5 text-warn" />}{r.inputPreview ?? '—'}
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
+              </tbody>
+            </table>
+            {rows.length === 0 && !loading && <EmptyState label="no requests match these filters" />}
+          </div>
+          <div className="flex items-center justify-between border-t border-carbon-800 px-3 py-2 text-[11px] text-ink-faint">
+            <span>{rows.length} row{rows.length !== 1 ? 's' : ''}</span>
+            {nextBefore && <button onClick={() => void load(true, nextBefore)} className="btn-ghost py-1 text-[11px]">Load older</button>}
+          </div>
         </div>
       </div>
     </div>

@@ -47,6 +47,7 @@ export interface StatsSummary {
   cancelled: number;
   p95_latency_ms: number | null;
   total_tokens: number | string;
+  ttfb_p50: number | null;
   est_cost_usd: number | null;
   flagged_injection: number;
 }
@@ -95,14 +96,16 @@ export interface TokensRow {
   tokens: number | string;
 }
 
+export interface Facets { provider: string[]; model: string[]; tenant: string[]; }
+
+// qs = filter query string already containing window + any provider/model/etc.
 export const fetchStats = {
-  summary: (window: number) => getJson<StatsSummary>(`/v1/stats/summary?window=${window}`),
-  models: (window: number) => getJson<{ rows: ModelRow[] }>(`/v1/stats/models?window=${window}`),
-  timeseries: (window: number) =>
-    getJson<{ unit: string; rows: TimeseriesRow[] }>(`/v1/stats/timeseries?window=${window}`),
-  errors: (window: number) =>
-    getJson<{ rates: ErrorRateRow[]; recent: RecentErrorRow[] }>(`/v1/stats/errors?window=${window}`),
-  tokens: (window: number) => getJson<{ rows: TokensRow[] }>(`/v1/stats/tokens?window=${window}`),
+  facets: () => getJson<Facets>('/v1/stats/facets'),
+  summary: (qs: string) => getJson<StatsSummary>(`/v1/stats/summary?${qs}`),
+  models: (qs: string) => getJson<{ rows: ModelRow[] }>(`/v1/stats/models?${qs}`),
+  timeseries: (qs: string) => getJson<{ unit: string; rows: TimeseriesRow[] }>(`/v1/stats/timeseries?${qs}`),
+  errors: (qs: string) => getJson<{ rates: ErrorRateRow[]; recent: RecentErrorRow[] }>(`/v1/stats/errors?${qs}`),
+  tokens: (qs: string) => getJson<{ rows: TokensRow[] }>(`/v1/stats/tokens?${qs}`),
 };
 
 // ── requests explorer ────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { and, desc, eq, gte, lt } from 'drizzle-orm';
+import { and, desc, eq, gte, ilike, lt } from 'drizzle-orm';
 import { z } from 'zod';
 import { estimateCostUsd, zUuid } from '@ollive/shared';
 import { conversations, db, inferenceLogs } from '../db.js';
@@ -13,6 +13,11 @@ const ListQuerySchema = z.object({
   provider: z.string().max(50).optional(),
   model: z.string().max(200).optional(),
   status: z.enum(['success', 'error', 'cancelled']).optional(),
+  stream: z.enum(['true', 'false']).optional(),
+  tenant: z.string().max(100).optional(),
+  flagged: z.enum(['true']).optional(),
+  /** case-insensitive search over the input preview */
+  q: z.string().max(200).optional(),
   /** Per-conversation drill-down (served by idx_logs_conversation). */
   conversationId: zUuid.optional(),
   /** Keyset cursor: return rows started strictly before this ISO timestamp. */
@@ -34,6 +39,10 @@ export function registerLogRoutes(app: FastifyInstance): void {
     if (q.provider) conds.push(eq(inferenceLogs.provider, q.provider));
     if (q.model) conds.push(eq(inferenceLogs.model, q.model));
     if (q.status) conds.push(eq(inferenceLogs.status, q.status));
+    if (q.stream) conds.push(eq(inferenceLogs.isStream, q.stream === 'true'));
+    if (q.tenant) conds.push(eq(inferenceLogs.tenantId, q.tenant));
+    if (q.flagged) conds.push(eq(inferenceLogs.flaggedInjection, true));
+    if (q.q) conds.push(ilike(inferenceLogs.inputPreview, `%${q.q}%`));
     if (q.conversationId) conds.push(eq(inferenceLogs.conversationId, q.conversationId));
     if (q.before) conds.push(lt(inferenceLogs.requestStartedAt, new Date(q.before)));
 

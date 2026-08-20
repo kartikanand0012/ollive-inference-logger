@@ -9,10 +9,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "framer-motion": "^13.1.1",
+    "highlight.js": "^11.12.0",
+    "lucide-react": "^1.33.0",
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "recharts": "^2.15.0"
+    "react-markdown": "^10.1.0",
+    "recharts": "^2.15.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
