@@ -47,8 +47,10 @@ spec:
           readinessProbe:
             exec:
               command: ["sh", "-c", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 10
+            timeoutSeconds: 10   # JVM probe cold-start exceeds the 1s default
+            failureThreshold: 6
           volumeMounts:
             - { name: kafkadata, mountPath: /var/lib/kafka/data }
       volumes:
