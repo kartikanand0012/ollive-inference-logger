@@ -125,6 +125,10 @@ export function registerChatRoutes(app: FastifyInstance): void {
     let output = '';
     let status: 'complete' | 'cancelled' | 'error' = 'complete';
     let errorMessage: string | undefined;
+    let promptTokens: number | undefined;
+    let completionTokens: number | undefined;
+    let firstTokenAt: number | undefined;
+    const startedAt = Date.now();
     try {
       // ALS context entered at the route boundary: the SDK picks these
       // ids up inside the wrapped provider client — nothing is threaded
@@ -139,8 +143,12 @@ export function registerChatRoutes(app: FastifyInstance): void {
             signal: ac.signal,
           })) {
             if (ev.type === 'delta') {
+              if (firstTokenAt === undefined) firstTokenAt = Date.now();
               output += ev.text;
               sse.send({ type: 'token', text: ev.text });
+            } else if (ev.type === 'usage') {
+              if (ev.promptTokens != null) promptTokens = ev.promptTokens;
+              if (ev.completionTokens != null) completionTokens = ev.completionTokens;
             }
           }
         },
@@ -195,6 +203,11 @@ export function registerChatRoutes(app: FastifyInstance): void {
         conversationId,
         messageId: assistantMessageId,
         cancelled: status === 'cancelled',
+        latencyMs: Date.now() - startedAt,
+        ttfbMs: firstTokenAt ? firstTokenAt - startedAt : undefined,
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens != null && completionTokens != null ? promptTokens + completionTokens : undefined,
       });
     }
     clearTimeout(generationTimeout);

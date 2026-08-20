@@ -20,7 +20,10 @@ export interface Message {
 export type ChatEvent =
   | { type: 'start'; conversationId: string; messageId: string }
   | { type: 'token'; text: string }
-  | { type: 'done'; conversationId: string; messageId: string; cancelled: boolean }
+  | {
+      type: 'done'; conversationId: string; messageId: string; cancelled: boolean;
+      latencyMs?: number; ttfbMs?: number; promptTokens?: number; completionTokens?: number; totalTokens?: number;
+    }
   | { type: 'error'; conversationId?: string; message: string };
 
 async function getJson<T>(path: string): Promise<T> {
@@ -222,4 +225,21 @@ export async function* streamChat(body: {
       }
     }
   }
+}
+
+
+// ── settings ─────────────────────────────────────────────────────────────────
+export interface ProviderStatus { configured: boolean; source: 'env' | 'runtime' | null; }
+export interface SettingsInfo {
+  providers: Record<string, ProviderStatus>;
+  models: Record<string, string[]>;
+  configured: string[];
+}
+export const fetchSettings = () => getJson<SettingsInfo>('/v1/settings');
+export async function saveProviderKey(provider: string, apiKey: string): Promise<{ ok?: boolean; error?: string; message?: string; configured?: string[] }> {
+  const res = await fetch(`${API_URL}/v1/settings/keys`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ provider, apiKey }),
+  });
+  return res.json() as Promise<{ ok?: boolean; error?: string; message?: string; configured?: string[] }>;
 }

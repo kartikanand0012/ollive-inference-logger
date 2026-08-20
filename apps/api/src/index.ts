@@ -11,6 +11,7 @@ import { registerChatRoutes } from './routes/chat.js';
 import { registerConversationRoutes } from './routes/conversations.js';
 import { registerStatsRoutes } from './routes/stats.js';
 import { registerLogRoutes } from './routes/logs.js';
+import { registerSettingsRoutes } from './routes/settings.js';
 
 const app = Fastify({
   logger: { level: process.env.LOG_LEVEL ?? 'info' },
@@ -46,6 +47,7 @@ registerChatRoutes(app);
 registerConversationRoutes(app);
 registerStatsRoutes(app);
 registerLogRoutes(app);
+registerSettingsRoutes(app);
 
 async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'shutting down');

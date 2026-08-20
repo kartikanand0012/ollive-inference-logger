@@ -11,7 +11,8 @@ import {
 import { Markdown } from './markdown';
 import { LiveDot } from '../ui';
 
-interface UiMessage { role: 'user' | 'assistant' | 'system'; content: string; status?: 'complete' | 'cancelled' | 'error'; }
+interface Meta { latencyMs?: number; ttfbMs?: number; totalTokens?: number; }
+interface UiMessage { role: 'user' | 'assistant' | 'system'; content: string; status?: 'complete' | 'cancelled' | 'error'; meta?: Meta; }
 
 export default function Chat() {
   const searchParams = useSearchParams();
@@ -111,7 +112,11 @@ export default function Chat() {
       for await (const ev of streamChat({ conversationId: origin ?? undefined, message: text, provider, model, sessionId: getSessionId() })) {
         if (ev.type === 'start') { streamConvRef.current = ev.conversationId; if (activeIdRef.current === origin) setActiveId(ev.conversationId); }
         else if (ev.type === 'token') { bufferRef.current += ev.text; schedule(); }
-        else if (ev.type === 'done') { flush(); if (ev.cancelled && viewing()) setMsgs((m) => { const l = m[m.length-1]; return l?.role==='assistant' ? [...m.slice(0,-1), {...l, status:'cancelled'}] : m; }); }
+        else if (ev.type === 'done') {
+          flush();
+          if (viewing()) setMsgs((m) => { const l = m[m.length-1]; if (l?.role!=='assistant') return m;
+            return [...m.slice(0,-1), { ...l, status: ev.cancelled ? 'cancelled' : l.status, meta: { latencyMs: ev.latencyMs, ttfbMs: ev.ttfbMs, totalTokens: ev.totalTokens } }]; });
+        }
         else if (ev.type === 'error') { flush(); if (viewing()) { setNotice(ev.message); setMsgs((m) => { const l = m[m.length-1]; return l?.role==='assistant' ? [...m.slice(0,-1), {...l, status:'error'}] : m; }); } }
       }
     } catch (err) {
@@ -236,6 +241,13 @@ function Message({ m, streaming }: { m: UiMessage; streaming: boolean }) {
         <div className={`mt-1 flex items-center gap-2 px-1 text-[11px] text-ink-faint ${isUser ? 'justify-end' : ''}`}>
           {m.status === 'cancelled' && <span className="text-warn">stopped</span>}
           {m.status === 'error' && <span className="text-danger">error</span>}
+          {!isUser && m.meta && (m.meta.latencyMs != null) && (
+            <span className="flex items-center gap-2 font-mono text-ink-faint">
+              <span>{m.meta.latencyMs}ms</span>
+              {m.meta.ttfbMs != null && <span>· ttft {m.meta.ttfbMs}ms</span>}
+              {m.meta.totalTokens != null && <span>· {m.meta.totalTokens} tok</span>}
+            </span>
+          )}
           {!isUser && m.content && (
             <button onClick={() => { navigator.clipboard.writeText(m.content); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
               className="flex items-center gap-1 opacity-0 transition-opacity hover:text-ink group-hover:opacity-100">

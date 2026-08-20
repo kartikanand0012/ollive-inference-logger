@@ -117,6 +117,6 @@ export const CHART = {
   seq: { p50: '#8fc0ff', p95: '#4d9bff', p99: '#2f6fd0' },
   danger: '#ef7a63',
   grid: '#242320',
-  tick: { fill: '#6f6b62', fontSize: 11, fontFamily: 'var(--font-mono)' },
+  tick: { fill: '#a8a49b', fontSize: 11 },
   tooltip: { backgroundColor: '#161615', border: '1px solid #3a3835', borderRadius: 10, fontSize: 12, boxShadow: '0 8px 24px -12px rgba(0,0,0,0.8)' },
 };
