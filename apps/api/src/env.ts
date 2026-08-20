@@ -6,7 +6,7 @@ export const env = {
   /** Where the SDK ships events (used from Phase 2 on). */
   ingestUrl: process.env.INGEST_URL ?? 'http://localhost:4318',
   ingestKey: process.env.INGEST_KEY ?? 'dev-ingest-key',
-  maxTokens: Number(process.env.CHAT_MAX_TOKENS ?? 1024),
+  maxTokens: Number(process.env.CHAT_MAX_TOKENS ?? 2048),
   /** Context window strategy: last N messages, no summarization — deliberate tradeoff. */
   contextMessages: 20,
   /**

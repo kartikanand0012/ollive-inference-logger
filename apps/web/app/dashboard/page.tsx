@@ -11,6 +11,7 @@ import { fetchStats, type Facets, type ModelRow, type RecentErrorRow, type Stats
 import { filtersToQuery, usePoll, useUrlFilters } from '../../lib/hooks';
 import { Card, CHART, EmptyState, LiveDot, StatCard } from '../../components/ui';
 import { FilterBar } from '../../components/filter-bar';
+import InsightsWidget from '../../components/insights-widget';
 
 const DEFAULTS = { window: '1440', provider: '', model: '', status: '', stream: '', tenant: '' };
 const KEYS = Object.keys(DEFAULTS);
@@ -171,6 +172,9 @@ function DashboardInner() {
           )}
         </Card>
       </div>
+
+      {/* Floating copilot — dashboard-only. Reads the live snapshot, keeps history, supports new chat. */}
+      <InsightsWidget />
     </div>
   );
 }

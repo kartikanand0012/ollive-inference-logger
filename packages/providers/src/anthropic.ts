@@ -17,6 +17,14 @@ export class AnthropicAdapter implements ProviderAdapter {
       .filter((m): m is ChatMessage & { role: 'user' | 'assistant' } => m.role !== 'system')
       .map((m) => ({ role: m.role, content: m.content }));
 
+    // Extended thinking is ON by default on newer Claude models (e.g.
+    // claude-opus-5). In streaming that emits a `thinking` content block FIRST,
+    // which spends `max_tokens` before any text is produced — a non-trivial
+    // prompt can exhaust the budget mid-thought and stream zero visible text
+    // ("no response"). A chatbot wants a direct answer, so thinking is disabled:
+    // uniform behavior across models, lower latency, and — since the dashboards
+    // are the product — clean completion-token accounting (no thinking tokens
+    // inflating cost/latency). Accepted by all current Claude models.
     // stream:true on messages.create (not the .stream() helper) so the SDK
     // proxy has a single interception point for both modes.
     const stream = await this.client.messages.create(
@@ -24,6 +32,7 @@ export class AnthropicAdapter implements ProviderAdapter {
         model: opts.model,
         max_tokens: opts.maxTokens,
         stream: true,
+        thinking: { type: 'disabled' },
         ...(system ? { system } : {}),
         messages,
       },

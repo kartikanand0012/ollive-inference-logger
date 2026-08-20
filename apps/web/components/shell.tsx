@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { MessageSquare, LayoutDashboard, ListTree, Activity, Settings, Sparkles } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, ListTree, Activity, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { API_URL } from '../lib/api';
 import { LiveDot } from './ui';
@@ -11,7 +11,6 @@ const NAV = [
   { href: '/', label: 'Chat', icon: MessageSquare },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/requests', label: 'Requests', icon: ListTree },
-  { href: '/insights', label: 'Insights', icon: Sparkles },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
