@@ -3,7 +3,6 @@ kind: Kustomization
 namespace: ollive
 resources:
   - namespace.yaml
-  - secret.example.yaml
   - postgres.yaml
   - kafka.yaml
   - jobs.yaml

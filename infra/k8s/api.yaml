@@ -16,7 +16,7 @@ spec:
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef: { name: app-config }
-            - secretRef: { name: provider-keys }
+            - secretRef: { name: provider-keys, optional: true }
           env:
             - { name: API_PORT, value: "4000" }
           ports: [{ containerPort: 4000 }]
