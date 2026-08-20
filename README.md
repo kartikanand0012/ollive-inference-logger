@@ -18,6 +18,19 @@ Next.js UI ──SSE──► Chat API (Fastify) ──► Anthropic / OpenAI
 Dashboards ◄── cost · p50/p95/p99 · TTFT · req/min · errors · tokens · drill-down ◄── Postgres
 ```
 
+## Documentation
+
+The README is the summary; each design doc below is the depth. All diagrams render
+natively on GitHub (Mermaid).
+
+| Doc | What's in it |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Architecture Notes** — component + sequence diagrams, ingestion flow, logging strategy, scaling, failure handling, capacity math |
+| [docs/SCHEMA.md](docs/SCHEMA.md) | **Schema design (UML)** — ER diagram, table-by-table rationale, query→index map, delivery semantics |
+| [docs/DESIGN-DECISIONS.md](docs/DESIGN-DECISIONS.md) | **Trade-offs & rationale** — every load-bearing choice, its alternatives, and what it costs |
+| [docs/LLD.md](docs/LLD.md) | **Low-level design** — exact interfaces, Kafka config table, captured `EXPLAIN ANALYZE` plans, retry matrix |
+| [docs/PRODUCTION.md](docs/PRODUCTION.md) | **Production plan** — ranked gap list, security posture, costed AWS reference, phased rollout |
+
 ## How to run
 
 **Prerequisites:** Docker with Compose v2.20+, and at least one provider key (`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`) — there is no mock provider.
@@ -55,6 +68,8 @@ A Terraform reference for a managed-AWS footprint (ECS Fargate, MSK, RDS Multi-A
 
 **Security.** Per-tenant API keys (`scripts/create-tenant.sh` — hash-stored, shown once), tiered rate limiting (per-IP on chat, per-key on ingest), helmet + CORS allowlist, slowloris/request timeouts, hard per-generation timeout, prompt-injection heuristics (OWASP LLM01) detected at the chat boundary and derived into a queryable `flagged_injection` column with dashboard surfacing (`GUARDRAILS_BLOCK=true` upgrades detection to blocking), and stored LLM content always rendered as escaped text (LLM05).
 
+> Full detail with diagrams: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · **[docs/LLD.md](docs/LLD.md)**.
+
 ## Schema design decisions
 
 Five tables (`infra/migrations/`, plain SQL applied by an atomic runner):
@@ -65,6 +80,8 @@ Five tables (`infra/migrations/`, plain SQL applied by an atomic runner):
 
 Indexes are query-driven, one per dashboard shape: `idx_logs_started` (every time-window aggregate), `idx_logs_prov_model` (model filters), **partial `idx_logs_errors`** (recent-errors is a pure 0.1 ms index walk), `idx_logs_conversation` (drill-down), `idx_logs_tenant`. All dashboard SQL is window-bounded + LIMITed under a 5 s `statement_timeout`; writes are batched, never row-by-row.
 
+> ER diagram + table-by-table rationale + query→index map: **[docs/SCHEMA.md](docs/SCHEMA.md)**.
+
 ## Tradeoffs made
 
 - **Kafka over RabbitMQ/Redis Streams:** a retained, replayable log with consumer-group offsets and per-partition ordering is exactly the log-ingestion shape; the cost is the heaviest container in Compose. Single-broker KRaft locally; prod = 3 brokers/RF=3/min.insync.replicas=2 — config, not code (the producer already sends `acks:-1`).
@@ -74,6 +91,8 @@ Indexes are query-driven, one per dashboard shape: `idx_logs_started` (every tim
 - **Last-20-message context, no summarization** — one constant to evolve; long chats lose early context.
 - **SQL-first migrations, Drizzle for typed queries only** — reviewers judge real DDL; schema is declared twice (SQL + mirror), drift caught by the smoke suite.
 - **tsx runtime, no build step** — legibility over cold-start; a real deploy would compile.
+
+> Each decision's alternatives and accepted cost, in full: **[docs/DESIGN-DECISIONS.md](docs/DESIGN-DECISIONS.md)**.
 
 ## What I'd improve with more time
 

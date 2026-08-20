@@ -10,12 +10,16 @@ coverage/
 .turbo/
 infra/k8s/generated/
 
-# internal working docs — not part of the code deliverable
-docs/
+# internal working notes — not part of the submission.
+# The curated design docs (ARCHITECTURE, SCHEMA, DESIGN-DECISIONS, LLD, PRODUCTION)
+# ARE tracked; only the process log, demo runbook, raw ADRs and the brief are ignored.
+docs/DECISIONS.md
+docs/DEVLOG.md
+docs/DEMO.md
+docs/Fullstack Engineer Assignment.md
 
 # terraform local state / provider cache
 **/.terraform/
 *.tfstate
 *.tfstate.*
 .terraform.lock.hcl
-ARCHITECTURE.md
