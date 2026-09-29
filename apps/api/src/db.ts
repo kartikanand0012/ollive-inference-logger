@@ -1,17 +1,16 @@
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import { Pool } from '@neondatabase/serverless';
-import ws from 'ws';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import pg from 'pg';
 import { dbSchema } from '@ollive/shared';
 import { env } from './env.js';
 
-// Neon serverless Pool (WebSocket transport) — pg's direct TCP+TLS to
-// port 5432 fails SSL handshake from sandboxed egress.
-(globalThis as { WebSocket?: unknown }).WebSocket ??= ws;
-
-export const pool = new Pool({
+export const pool = new pg.Pool({
   connectionString: env.databaseUrl,
   max: 10,
   idleTimeoutMillis: 30_000,
+});
+// Prevent unhandled 'error' events from crashing the process.
+pool.on('error', (err) => {
+  console.error(JSON.stringify({ msg: 'db pool error (connection will retry)', err: String(err) }));
 });
 
 export const db = drizzle(pool, { schema: dbSchema });

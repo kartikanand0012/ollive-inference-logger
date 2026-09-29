@@ -28,21 +28,16 @@ const env = {
   dbRetries: 3,
 };
 
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from 'ws';
+import pg from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 
-// Neon serverless Pool uses WebSockets (port 443) instead of direct TCP+TLS
-// to port 5432 — the latter fails SSL handshake from sandboxed egress
-// (Render free tier). API-compatible with pg.Pool for drizzle.
-(globalThis as { WebSocket?: unknown }).WebSocket ??= ws;
-const pool = new Pool({
+const pool = new pg.Pool({
   connectionString: env.databaseUrl,
   max: 10,
   idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 5_000,
 });
-// Prevent unhandled 'error' events from crashing the process (Neon
-// serverless Pool emits these on WebSocket disruptions).
+// Prevent unhandled 'error' events from crashing the process.
 pool.on('error', (err) => {
   console.error(JSON.stringify({ msg: 'db pool error (connection will retry)', err: String(err) }));
 });
