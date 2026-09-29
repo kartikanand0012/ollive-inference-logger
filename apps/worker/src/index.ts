@@ -40,11 +40,11 @@ const pool = new Pool({
   connectionString: env.databaseUrl,
   max: 10,
   idleTimeoutMillis: 30_000,
-  // Bounded waits: a black-holed DB (paused container, half-dead TCP) must
-  // fail into the retry→DLQ path within a heartbeat interval, not hang the
-  // consumer past the session timeout.
-  connectionTimeoutMillis: 5_000,
-  options: '-c statement_timeout=15000',
+});
+// Prevent unhandled 'error' events from crashing the process (Neon
+// serverless Pool emits these on WebSocket disruptions).
+pool.on('error', (err) => {
+  console.error(JSON.stringify({ msg: 'db pool error (connection will retry)', err: String(err) }));
 });
 const db = drizzle(pool, { schema: dbSchema });
 const { inferenceLogs, ingestFailures } = dbSchema;
