@@ -1,5 +1,5 @@
 export const env = {
-  port: Number(process.env.API_PORT ?? 4000),
+  port: Number(process.env.PORT ?? process.env.API_PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? 'postgres://ollive:ollive@localhost:5432/ollive',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
   openaiApiKey: process.env.OPENAI_API_KEY || undefined,

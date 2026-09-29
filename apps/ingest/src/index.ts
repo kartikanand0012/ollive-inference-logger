@@ -11,7 +11,7 @@ import { InferenceEventV1Schema, TOPIC_EVENTS, kafkaSaslConfig, type InferenceEv
 // is the event-architecture story (producers fast, consumers absorb bursts).
 
 const env = {
-  port: Number(process.env.INGEST_PORT ?? 4318),
+  port: Number(process.env.PORT ?? process.env.INGEST_PORT ?? 4318),
   brokers: (process.env.KAFKA_BROKERS ?? 'localhost:29092').split(','),
   ingestKey: process.env.INGEST_KEY ?? 'dev-ingest-key',
   /** Requests/minute per ingest key (one request carries up to 50 events). */
