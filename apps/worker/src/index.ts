@@ -1,4 +1,5 @@
 import { CompressionTypes, Kafka, logLevel, type EachBatchPayload, type KafkaMessage } from 'kafkajs';
+import { createServer } from 'node:http';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import {
@@ -9,6 +10,7 @@ import {
   dbSchema,
   detectPromptInjection,
   estimateCostUsd,
+  kafkaSaslConfig,
   redactEvent,
   type InferenceEventV1,
 } from '@ollive/shared';
@@ -39,7 +41,7 @@ const pool = new pg.Pool({
 const db = drizzle(pool, { schema: dbSchema });
 const { inferenceLogs, ingestFailures } = dbSchema;
 
-const kafka = new Kafka({ clientId: 'ollive-worker', brokers: env.brokers, logLevel: logLevel.WARN });
+const kafka = new Kafka({ clientId: 'ollive-worker', brokers: env.brokers, logLevel: logLevel.WARN, ...kafkaSaslConfig() });
 const consumer = kafka.consumer({
   groupId: CONSUMER_GROUP_WRITERS,
   // kafkajs default is 5s — at low volume events sat a full fetch-wait before
@@ -288,6 +290,15 @@ process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
 
 async function main(): Promise<void> {
+  // Minimal health endpoint so the worker can run as a Render web service
+  // (free tier has no background workers). Also serves as the keep-warm target.
+  const port = Number(process.env.PORT ?? 0);
+  if (port > 0) {
+    createServer((req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, service: 'ollive-worker' }));
+    }).listen(port);
+  }
   await dlqProducer.connect();
   await admin.connect();
   await consumer.connect();

@@ -4,7 +4,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { CompressionTypes, Kafka, logLevel } from 'kafkajs';
 import pg from 'pg';
-import { InferenceEventV1Schema, TOPIC_EVENTS, type InferenceEventV1 } from '@ollive/shared';
+import { InferenceEventV1Schema, TOPIC_EVENTS, kafkaSaslConfig, type InferenceEventV1 } from '@ollive/shared';
 
 // Ingest is deliberately stateless: validate → produce → 202. No DB writes —
 // Kafka retention is the buffer, the worker owns persistence. That separation
@@ -86,6 +86,7 @@ const kafka = new Kafka({
   clientId: 'ollive-ingest',
   brokers: env.brokers,
   logLevel: logLevel.WARN,
+  ...kafkaSaslConfig(),
 });
 // Idempotent producer: a broker ack lost in transit no longer duplicates the
 // batch on retry — sequence numbers dedupe broker-side. Costs

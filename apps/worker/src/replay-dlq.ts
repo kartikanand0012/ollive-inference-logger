@@ -12,10 +12,10 @@
 // absorbed as duplicates. Kafka topics can't delete individual messages —
 // unreplayable poison stays until topic retention expires it.
 import { Kafka, logLevel } from 'kafkajs';
-import { InferenceEventV1Schema, TOPIC_DLQ, TOPIC_EVENTS } from '@ollive/shared';
+import { InferenceEventV1Schema, TOPIC_DLQ, TOPIC_EVENTS, kafkaSaslConfig } from '@ollive/shared';
 
 const brokers = (process.env.KAFKA_BROKERS ?? 'localhost:29092').split(',');
-const kafka = new Kafka({ clientId: 'ollive-dlq-replay', brokers, logLevel: logLevel.NOTHING });
+const kafka = new Kafka({ clientId: 'ollive-dlq-replay', brokers, logLevel: logLevel.NOTHING, ...kafkaSaslConfig() });
 
 async function main(): Promise<void> {
   const admin = kafka.admin();
