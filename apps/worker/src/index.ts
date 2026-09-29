@@ -1,7 +1,7 @@
 import { CompressionTypes, Kafka, logLevel, type EachBatchPayload, type KafkaMessage } from 'kafkajs';
 import { createServer } from 'node:http';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import pg from 'pg';
+// pg import removed — using @neondatabase/serverless Pool (WebSocket transport)
 import {
   CONSUMER_GROUP_WRITERS,
   InferenceEventV1Schema,
@@ -28,7 +28,14 @@ const env = {
   dbRetries: 3,
 };
 
-const pool = new pg.Pool({
+import { Pool } from '@neondatabase/serverless';
+import ws from 'ws';
+
+// Neon serverless Pool uses WebSockets (port 443) instead of direct TCP+TLS
+// to port 5432 — the latter fails SSL handshake from sandboxed egress
+// (Render free tier). API-compatible with pg.Pool for drizzle.
+(globalThis as { WebSocket?: unknown }).WebSocket ??= ws;
+const pool = new Pool({
   connectionString: env.databaseUrl,
   max: 10,
   idleTimeoutMillis: 30_000,
