@@ -32,6 +32,9 @@ importers:
       '@fastify/rate-limit':
         specifier: ^11.2.0
         version: 11.2.0
+      '@neondatabase/serverless':
+        specifier: ^1.0.2
+        version: 1.1.0
       '@ollive/providers':
         specifier: workspace:*
         version: link:../../packages/providers
@@ -43,7 +46,7 @@ importers:
         version: link:../../packages/shared
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
+        version: 0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.23.1)(pg@8.23.0)
       fastify:
         specifier: ^5.12.0
         version: 5.12.0
@@ -52,13 +55,16 @@ importers:
         version: 6.0.0
       openai:
         specifier: ^7.5.0
-        version: 7.5.0(zod@3.25.76)
+        version: 7.5.0(ws@8.22.0)(zod@3.25.76)
       pg:
         specifier: ^8.23.0
         version: 8.23.0
       tsx:
         specifier: ^4.23.12
         version: 4.23.12
+      ws:
+        specifier: ^8.18.0
+        version: 8.22.0
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -69,6 +75,9 @@ importers:
       '@types/pg':
         specifier: ^8.11.0
         version: 8.23.1
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -164,12 +173,15 @@ importers:
 
   apps/worker:
     dependencies:
+      '@neondatabase/serverless':
+        specifier: ^1.0.2
+        version: 1.1.0
       '@ollive/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
+        version: 0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.23.1)(pg@8.23.0)
       kafkajs:
         specifier: ^2.2.4
         version: 2.2.4
@@ -179,6 +191,9 @@ importers:
       tsx:
         specifier: ^4.23.12
         version: 4.23.12
+      ws:
+        specifier: ^8.18.0
+        version: 8.22.0
     devDependencies:
       '@types/node':
         specifier: ^20.17.0
@@ -186,6 +201,9 @@ importers:
       '@types/pg':
         specifier: ^8.11.0
         version: 8.23.1
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -200,7 +218,7 @@ importers:
         version: link:../shared
       openai:
         specifier: ^7.5.0
-        version: 7.5.0(zod@3.25.76)
+        version: 7.5.0(ws@8.22.0)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: ^20.17.0
@@ -229,7 +247,7 @@ importers:
     dependencies:
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2(@types/pg@8.23.1)(pg@8.23.0)
+        version: 0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.23.1)(pg@8.23.0)
       pg:
         specifier: ^8.23.0
         version: 8.23.0
@@ -616,6 +634,10 @@ packages:
     cpu: [x64]
     os: [linux]
 
+  '@neondatabase/serverless@1.1.0':
+    resolution: {integrity: sha512-r3ZZhRjEcfEdKIZnoB1RusNgvHuaBRqfCzV4Gi+5A9yUX0S4HTws/ASWqt13wL4y4I+0rqsWGdA2w7EQXHi3+Q==}
+    engines: {node: '>=19.0.0'}
+
   '@next/env@14.2.35':
     resolution: {integrity: sha512-DuhvCtj4t9Gwrx80dmz2F4t/zKQ4ktN8WrMwOuVzkJfBilwAwGr6v16M5eI8yCuZ63H9TTuEU09Iu2HqkzFPVQ==}
 
@@ -889,6 +911,9 @@ packages:
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
+
+  '@types/ws@8.18.2':
+    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
   '@ungap/structured-clone@1.3.3':
     resolution: {integrity: sha512-60YRaenCQcVjYEKOcG824+DRGGIQ3VKErcBoAEDJZz5bKIs2ZG+X/H9Nk+Q6EVkwJk5QNApxbrc5QtBSwtrXAg==}
@@ -2259,6 +2284,18 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
+  ws@8.22.0:
+    resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
@@ -2490,6 +2527,8 @@ snapshots:
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
 
+  '@neondatabase/serverless@1.1.0': {}
+
   '@next/env@14.2.35': {}
 
   '@next/swc-darwin-arm64@14.2.33':
@@ -2685,6 +2724,10 @@ snapshots:
   '@types/unist@2.0.11': {}
 
   '@types/unist@3.0.3': {}
+
+  '@types/ws@8.18.2':
+    dependencies:
+      '@types/node': 20.19.43
 
   '@ungap/structured-clone@1.3.3': {}
 
@@ -2911,8 +2954,9 @@ snapshots:
       '@babel/runtime': 7.29.7
       csstype: 3.2.3
 
-  drizzle-orm@0.45.2(@types/pg@8.23.1)(pg@8.23.0):
+  drizzle-orm@0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.23.1)(pg@8.23.0):
     optionalDependencies:
+      '@neondatabase/serverless': 1.1.0
       '@types/pg': 8.23.1
       pg: 8.23.0
 
@@ -3640,8 +3684,9 @@ snapshots:
 
   on-exit-leak-free@2.1.2: {}
 
-  openai@7.5.0(zod@3.25.76):
+  openai@7.5.0(ws@8.22.0)(zod@3.25.76):
     optionalDependencies:
+      ws: 8.22.0
       zod: 3.25.76
 
   parse-entities@4.0.2:
@@ -4263,6 +4308,8 @@ snapshots:
     dependencies:
       siginfo: 2.0.0
       stackback: 0.0.2
+
+  ws@8.22.0: {}
 
   xtend@4.0.2: {}
 

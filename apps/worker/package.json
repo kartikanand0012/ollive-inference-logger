@@ -10,17 +10,18 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
     "@ollive/shared": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "kafkajs": "^2.2.4",
     "pg": "^8.23.0",
     "tsx": "^4.23.12",
-    "@neondatabase/serverless": "^1.0.2",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
     "@types/pg": "^8.11.0",
+    "@types/ws": "^8.18.2",
     "typescript": "^5.7.0"
   }
 }

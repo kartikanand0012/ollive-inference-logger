@@ -13,6 +13,7 @@
     "@fastify/cors": "^11.3.0",
     "@fastify/helmet": "^13.1.1",
     "@fastify/rate-limit": "^11.2.0",
+    "@neondatabase/serverless": "^1.0.2",
     "@ollive/providers": "workspace:*",
     "@ollive/sdk": "workspace:^",
     "@ollive/shared": "workspace:*",
@@ -22,13 +23,13 @@
     "openai": "^7.5.0",
     "pg": "^8.23.0",
     "tsx": "^4.23.12",
-    "zod": "^3.24.1",
-    "@neondatabase/serverless": "^1.0.2",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
     "@types/pg": "^8.11.0",
+    "@types/ws": "^8.18.2",
     "typescript": "^5.7.0"
   }
 }

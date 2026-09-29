@@ -1,6 +1,6 @@
 import { CompressionTypes, Kafka, logLevel, type EachBatchPayload, type KafkaMessage } from 'kafkajs';
 import { createServer } from 'node:http';
-import { drizzle } from 'drizzle-orm/node-postgres';
+// (drizzle import moved below with neon Pool)
 // pg import removed — using @neondatabase/serverless Pool (WebSocket transport)
 import {
   CONSUMER_GROUP_WRITERS,
@@ -29,6 +29,7 @@ const env = {
 };
 
 import { Pool } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from 'ws';
 
 // Neon serverless Pool uses WebSockets (port 443) instead of direct TCP+TLS
