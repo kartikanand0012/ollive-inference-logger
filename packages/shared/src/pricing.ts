@@ -11,6 +11,9 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   'claude-haiku-4-5': { inputPerMTok: 1, outputPerMTok: 5 },
   'gpt-4o': { inputPerMTok: 2.5, outputPerMTok: 10 },
   'gpt-4o-mini': { inputPerMTok: 0.15, outputPerMTok: 0.6 },
+  // Mock provider: always free — dashboards show $0.00 instead of "—".
+  'mock-chat-1': { inputPerMTok: 0, outputPerMTok: 0 },
+  'mock-chat-1-fast': { inputPerMTok: 0, outputPerMTok: 0 },
 };
 
 export function estimateCostUsd(

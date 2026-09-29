@@ -33,7 +33,7 @@ natively on GitHub (Mermaid).
 
 ## How to run
 
-**Prerequisites:** Docker with Compose v2.20+, and at least one provider key (`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`) — there is no mock provider.
+**Prerequisites:** Docker with Compose v2.20+. Provider keys (`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`) are optional — a built-in **mock provider** (free, keyless, zero-network) is always registered, so the full demo works out of the box; add a real key to switch to live models.
 
 ```bash
 cp .env.example .env          # put your provider key(s) in here

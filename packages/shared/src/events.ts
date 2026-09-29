@@ -12,7 +12,7 @@ export const PREVIEW_MAX_LEN = 500;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const zUuid = z.string().regex(UUID_RE, 'invalid uuid');
 
-export const ProviderSchema = z.enum(['anthropic', 'openai', 'gemini']);
+export const ProviderSchema = z.enum(['anthropic', 'openai', 'gemini', 'mock']);
 export type Provider = z.infer<typeof ProviderSchema>;
 
 export const InferenceStatusSchema = z.enum(['success', 'error', 'cancelled']);

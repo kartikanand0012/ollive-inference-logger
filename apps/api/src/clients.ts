@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
-import { AnthropicAdapter, OpenAIAdapter, type ProviderAdapter } from '@ollive/providers';
-import { wrapAnthropic, wrapOpenAI } from '@ollive/sdk';
+import { AnthropicAdapter, MockAnthropicClient, OpenAIAdapter, type ProviderAdapter } from '@ollive/providers';
+import { wrapAnthropic, wrapOpenAI, getDefaultTransport } from '@ollive/sdk';
 import { env } from './env.js';
 
 // Provider clients are (re)built here — the ONLY place auto-instrumentation
@@ -9,7 +9,7 @@ import { env } from './env.js';
 // runtime (in-memory only — we deliberately do NOT persist user keys; a
 // production deployment would hold them in a secrets manager / vault).
 const adapters = new Map<string, ProviderAdapter>();
-type Src = 'env' | 'runtime';
+type Src = 'env' | 'runtime' | 'builtin';
 const keySource = new Map<string, Src>();
 
 function build(provider: string, key: string, source: Src): void {
@@ -23,6 +23,19 @@ function build(provider: string, key: string, source: Src): void {
 
 if (env.anthropicApiKey) build('anthropic', env.anthropicApiKey, 'env');
 if (env.openaiApiKey) build('openai', env.openaiApiKey, 'env');
+
+// Mock provider: always registered, needs no key. It is shaped like the
+// Anthropic SDK client, so the SAME AnthropicAdapter + wrapAnthropic
+// instrumentation records its telemetry — the mock exercises the identical
+// code path as a real provider call. The cast is structural: only
+// `messages.create` is ever touched.
+adapters.set(
+  'mock',
+  new AnthropicAdapter(
+    wrapAnthropic(new MockAnthropicClient() as unknown as Anthropic, getDefaultTransport(), 'mock'),
+  ),
+);
+keySource.set('mock', 'builtin');
 
 // When both providers are configured, one is "active" — the default the chat
 // picker selects. Users switch it in Settings (activate one at a time).
@@ -42,6 +55,7 @@ export function configuredProviders(): string[] {
 }
 /** Set a provider key at runtime; returns true if a valid provider was (re)built. */
 export function setProviderKey(provider: string, key: string): boolean {
+  if (provider === 'mock') return false; // mock needs no key — always on
   if (provider !== 'anthropic' && provider !== 'openai') return false;
   build(provider, key, 'runtime');
   return true;
@@ -49,7 +63,7 @@ export function setProviderKey(provider: string, key: string): boolean {
 /** Per-provider status for the Settings UI (never returns the key itself). */
 export function providerStatus(): Record<string, { configured: boolean; source: Src | null }> {
   const out: Record<string, { configured: boolean; source: Src | null }> = {};
-  for (const p of ['anthropic', 'openai']) {
+  for (const p of ['anthropic', 'openai', 'mock']) {
     out[p] = { configured: adapters.has(p), source: keySource.get(p) ?? null };
   }
   return out;

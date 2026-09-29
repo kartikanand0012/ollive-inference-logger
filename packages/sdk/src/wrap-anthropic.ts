@@ -9,6 +9,7 @@ import {
   type StreamExtractor,
 } from './instrument.js';
 import { getDefaultTransport, type BufferedTransport } from './transport.js';
+import type { Provider } from '@ollive/shared';
 
 interface AnthropicParams {
   model?: string;
@@ -58,13 +59,16 @@ function captureFinalMessage(result: unknown, rec: CallRecorder): void {
 export function wrapAnthropic<T extends object>(
   client: T,
   transport: BufferedTransport = getDefaultTransport(),
+  // Telemetry label. Defaults to 'anthropic'; the mock provider passes 'mock'
+  // so demo traffic never pollutes real-provider dashboard facets.
+  providerLabel: Provider = 'anthropic',
 ): T {
   return wrapMethodPath(client, ['messages', 'create'], (original, self) =>
     function wrappedCreate(...args: unknown[]) {
       const params = (args[0] ?? {}) as AnthropicParams;
       const signal = (args[1] as { signal?: AbortSignal } | undefined)?.signal;
       const rec = new CallRecorder(transport, {
-        provider: 'anthropic',
+        provider: providerLabel,
         model: String(params.model ?? 'unknown'),
         isStream: Boolean(params.stream),
         inputPreview: previewOfInput(params),

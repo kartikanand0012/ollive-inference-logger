@@ -8,6 +8,7 @@ import { Card } from '../../components/ui';
 const PROVIDERS = [
   { id: 'anthropic', label: 'Anthropic', hint: 'sk-ant-…', doc: 'console.anthropic.com' },
   { id: 'openai', label: 'OpenAI', hint: 'sk-…', doc: 'platform.openai.com' },
+  { id: 'mock', label: 'Mock', hint: '', doc: '', keyless: true, blurb: 'Free built-in demo provider — no key, no network. Streams canned replies through the full instrumented pipeline so dashboards light up instantly.' },
 ];
 
 export default function SettingsPage() {
@@ -59,8 +60,8 @@ export default function SettingsPage() {
 }
 
 function ProviderKeyCard({ p, status, models, onSaved }: {
-  p: { id: string; label: string; hint: string; doc: string };
-  status?: { configured: boolean; source: 'env' | 'runtime' | null }; models: string[]; onSaved: () => void;
+  p: { id: string; label: string; hint: string; doc: string; keyless?: boolean; blurb?: string };
+  status?: { configured: boolean; source: 'env' | 'runtime' | 'builtin' | null }; models: string[]; onSaved: () => void;
 }) {
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
@@ -82,19 +83,23 @@ function ProviderKeyCard({ p, status, models, onSaved }: {
           <span className="font-display text-sm font-medium text-ink">{p.label}</span>
           {status?.configured && (
             <span className="inline-flex items-center gap-1 rounded-full bg-live/15 px-2 py-0.5 text-[11px] font-medium text-live">
-              <ShieldCheck className="h-3 w-3" /> {status.source === 'env' ? 'configured (env)' : 'configured'}
+              <ShieldCheck className="h-3 w-3" /> {status.source === 'env' ? 'configured (env)' : status.source === 'builtin' ? 'always on' : 'configured'}
             </span>
           )}
         </div>
         <span className="font-mono text-[11px] text-ink-faint">{models.length} models</span>
       </div>
-      <div className="flex gap-2">
-        <input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder={`${p.hint}  (from ${p.doc})`}
-          onKeyDown={(e) => { if (e.key === 'Enter') void save(); }} className="input flex-1 font-mono" />
-        <button onClick={() => void save()} disabled={busy || !key.trim()} className="btn-primary disabled:opacity-40">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-        </button>
-      </div>
+      {p.keyless ? (
+        <p className="text-xs text-ink-muted">{p.blurb}</p>
+      ) : (
+        <div className="flex gap-2">
+          <input type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder={`${p.hint}  (from ${p.doc})`}
+            onKeyDown={(e) => { if (e.key === 'Enter') void save(); }} className="input flex-1 font-mono" />
+          <button onClick={() => void save()} disabled={busy || !key.trim()} className="btn-primary disabled:opacity-40">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+          </button>
+        </div>
+      )}
       {msg && (
         <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
           className={`mt-2 flex items-center gap-1.5 text-xs ${msg.ok ? 'text-live' : 'text-danger'}`}>

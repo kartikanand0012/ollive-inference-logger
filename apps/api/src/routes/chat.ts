@@ -14,7 +14,7 @@ import { openSse } from '../sse.js';
 const ChatBodySchema = z.object({
   conversationId: zUuid.optional(),
   message: z.string().min(1).max(8000),
-  provider: z.enum(['anthropic', 'openai']),
+  provider: z.enum(['anthropic', 'openai', 'mock']),
   model: z.string().min(1).max(200),
   /** Browser-session id (sessionStorage uuid) — groups a user's turns in telemetry. */
   sessionId: z.string().max(100).optional(),
@@ -52,10 +52,14 @@ export function registerChatRoutes(app: FastifyInstance): void {
 
     const adapter = getAdapter(body.provider);
     if (!adapter) {
-      const keyName = body.provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY';
+      const keyName =
+        body.provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : body.provider === 'openai' ? 'OPENAI_API_KEY' : null;
       return reply
         .code(400)
-        .send({ error: 'provider_not_configured', message: `Set ${keyName} and restart the api.` });
+        .send({
+          error: 'provider_not_configured',
+          message: keyName ? `Set ${keyName} and restart the api.` : 'Unknown provider.',
+        });
     }
 
     // Persist the user turn and snapshot context in one transaction. The
